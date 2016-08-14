@@ -1,24 +1,38 @@
 # coding=utf8
+from sklearn import ensemble
+
 import numpy as np
 
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.metrics import confusion_matrix
+from sklearn.metrics import precision_score
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
 
 
-# def train_and_predict(x_data, y_data, train_num=350):
-#     length = len(x_data)
-#     indices = np.arange(length)
-#     rng = np.random.RandomState(0)
-#     rng.shuffle(indices)
-#     x_train = x_data[indices[:train_num]]
-#     y_train = y_data[indices[:train_num]]
-#     x_test = x_data[indices[train_num+1:]]
-#     y_test = y_data[indices[train_num+1:]]
-#     rfc = RandomForestClassifier(n_estimators=5)
-#     rfc.fit(x_train, y_train)
-#     result = rfc.predict(x_test)
-#     cm = confusion_matrix(y_test, rfc.predict(x_test), labels=rfc.classes_)
-#     print cm
+def train_and_predict(x_data, y_data, train_num=1000):
+    length = len(x_data)
+    indices = np.arange(length)
+    rng = np.random.RandomState(0)
+    rng.shuffle(indices)
+    x_train = x_data[indices[:train_num]]
+    y_train = y_data[indices[:train_num]]
+    x_test = x_data[indices[train_num+1:]]
+    y_test = y_data[indices[train_num+1:]]
+    rfc = RandomForestClassifier(n_estimators=400)
+    rfc.fit(x_train, y_train)
+    result = rfc.predict(x_test)
+    cm = confusion_matrix(y_test, rfc.predict(x_test), labels=rfc.classes_)
+    # print cm
+    print precision_score(y_test, result)
+    return precision_score(y_test, result)
+
+    # clf = ensemble.GradientBoostingClassifier(n_estimators=1200,learning_rate=0.9, loss='deviance')
+    # clf.fit(x_train, y_train)
+    # result2 = clf.predict(x_test)
+    # cm2 = confusion_matrix(y_test, result2)
+    # print cm2
+    # print precision_score(y_test, result2)
 
 
 def read_sample(sample_label, sample_file_path, version=0):
@@ -118,13 +132,23 @@ def test():
     print feature_info
 
 if __name__ == '__main__':
-    x_data1, y_data1 = read_sample(1, '/Users/galois/code/python/ML_project/data/good', version=1)
-    x_data2, y_data2 = read_sample(0, '/Users/galois/code/python/ML_project/data/bad', version=1)
-    indices = np.arange(800)
-    x_data2 = x_data2[indices]
-    y_data2 = y_data2[indices]
-    x_data = np.concatenate((x_data1, x_data2))
-    y_data = np.concatenate((y_data1, y_data2))
-    print len(x_data)
-    print len(y_data)
-    # train_and_predict(x_data, y_data)
+    # x_data1, y_data1 = read_sample(1, '/home/grace/code/python/ML_project/data/good', version=1)
+    x_data1, y_data1 = read_sample(1, '/home/grace/code/python/ML_project/data/good_label_car.txt')
+    x_data2, y_data2 = read_sample(0, '/home/grace/code/python/ML_project/data/bad', version=1)
+    precision_result = []
+    for i in range(20):
+        indices = np.arange(len(x_data2))
+        rng = np.random.RandomState(0)
+        rng.shuffle(indices)
+
+        x_data2 = x_data2[indices[:880]]
+        y_data2 = y_data2[indices[:880]]
+
+        x_data = np.concatenate((x_data1,x_data1, x_data2))
+        y_data = np.concatenate((y_data1, y_data1, y_data2))
+        # print len(x_data
+        # print len(y_data)
+        precision_result.append(train_and_predict(x_data, y_data))
+    plt.plot(precision_result)
+    plt.show()
+
