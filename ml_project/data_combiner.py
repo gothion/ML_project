@@ -29,3 +29,13 @@ def get_url_info_by_id(input_file_path, output_file_path, input_columns,
                                columns=input_columns)
     final_result = pd.merge(photo_url_info, result_info, on='photo_id', how='inner')
     final_result[cols_to_keep].to_csv(output_file_path, encoding='utf8', header=False)
+
+
+# ['photo_id', 'score', 'vector_info']
+# cols_to_keep = ['photo_id', 'score', 'photo_url']
+def get_score_b_by_id(input_file_path, output_file_path, input_columns):
+    cols_to_keep = input_columns + ['score_b']
+    result_info = pd.DataFrame(pd.read_csv(input_file_path, header=None, sep='\t').get_values(),
+                               columns=input_columns)
+    final_result = pd.merge(photo_url_info, result_info, on='photo_id', how='inner')
+    final_result[cols_to_keep].to_csv(output_file_path, encoding='utf8', header=False, sep='\t', index=False)

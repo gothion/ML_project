@@ -95,6 +95,7 @@ def extract_object_info(object_part, object_num=-1):
 def extract_object_info_impl(object_str):
     object_arr = object_str.split(',')
     object_sign = object_arr[0]
+
     object_area = float(object_arr[6])
     if object_sign == 'other.other':
         unknown_label = 1
@@ -161,26 +162,35 @@ def get_model():
     return precision, model
 
 
-def prediction_with_model(model, out_put_file):
-    to_be_predicted = read_predicted_line(data_folder + '/good_multi_lable_scoreb.txt')
-    to_be_predicted2 = read_predicted_line(data_folder + '/bad_multi_lable_scoreb.txt')
-    to_be_predicted = dict(to_be_predicted.items() + to_be_predicted2.items())
+def prediction_with_model(model, out_put_file, input_data_path):
+    to_be_predicted = read_predicted_line(input_data_path)
     with open(out_put_file, mode='w') as out_put_data:
         with open(out_put_file + "_v2", mode='w') as output_data_v2:
-            for photo_id, vector_info in to_be_predicted.iteritems():
+            for photo_id, (vector_info, raw_line) in to_be_predicted.iteritems():
                 new_vector_info = vector_info.reshape(1, -1)
                 prediction_result = model.predict_proba(new_vector_info)[0][1]
-                if vector_info[3] > 0.10 and prediction_result >= 0.5:
+                if prediction_result >= 0.5 and vector_info[3] > 0.10\
+                        and vector_info[7] == 0 and not is_car_only_part(raw_line):
                     out_put_data.write(photo_id + ',' + str(prediction_result) + ',' + str(vector_info) + '\n')
-                if vector_info[6] >= 0.98:
+                if vector_info[6] >= 0.98 and vector_info[7] == 0 and not is_car_only_part(raw_line):
                     output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
                 elif vector_info[6] >= 0.75 and prediction_result > 0.45 \
-                        and vector_info[3] > 0.10 and vector_info[7] == 0:
+                        and vector_info[3] > 0.10 and vector_info[7] == 0 and not is_car_only_part(raw_line):
                     output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+                elif vector_info[6] >= 0.45 and prediction_result > 0.55 \
+                        and vector_info[3] > 0.10 and vector_info[7] == 0 and not is_car_only_part(raw_line):
+                    output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+
+    total_out_file = out_put_file+"_total"
+    with open(total_out_file, mode='w') as out_total:
+        for photo_id, (vector_info, raw_line) in to_be_predicted.iteritems():
+            out_total.write(photo_id + ',' + str(prediction_result) + ',' + str(is_car_only_part(raw_line)) + '\n')
 
     data_combiner.get_url_info_by_id(out_put_file, out_put_file+'_with_url',
                                      input_columns=['photo_id', 'score', 'vector_info'])
     data_combiner.get_url_info_by_id(out_put_file + '_v2', out_put_file + '_v2_with_url',
+                                     input_columns=['photo_id', 'score', 'vector_info'])
+    data_combiner.get_url_info_by_id(total_out_file, total_out_file+'_with_url',
                                      input_columns=['photo_id', 'score', 'vector_info'])
 
 
@@ -189,7 +199,7 @@ def read_predicted_line(file_path):
     with open(file_path, mode='r') as input_data:
         for line in input_data:
             photo_id = get_picture_id(line)
-            picture_dict[photo_id] = np.array(extract_feature(line))
+            picture_dict[photo_id] = (np.array(extract_feature(line)), line)
     return picture_dict
 
 
@@ -197,29 +207,42 @@ def get_picture_id(line):
     return line.split("\t")[0]
 
 
-def is_part_of_car(line):
-    str_vec = line.split('\t')
-    str_vec2 = str_vec[4].split(';')
-    height = int(str_vec[1])
-    width = int(str_vec[2])
-    for i in range(len(str_vec2)):
-        str_vec3 = str_vec2[i].split(',')
-        if 7 != len(str_vec3):
-            continue
-        center_x = (int(str_vec3[2]) + int(str_vec3[4])) / 2
-        center_y = (int(str_vec3[3]) + int(str_vec3[5])) / 2
-        center_x_dist = float(abs(width/2 - center_x)) / width
-        center_y_dist = float(abs(height/2 - center_y)) / height
+# def is_part_of_car(line):
+#     str_vec = line.split('\t')
+#     str_vec2 = str_vec[4].split(';')
+#     height = int(str_vec[1])
+#     width = int(str_vec[2])
+#     for i in range(len(str_vec2)):
+#         str_vec3 = str_vec2[i].split(',')
+#         if 7 != len(str_vec3):
+#             continue
+#         center_x = (int(str_vec3[2]) + int(str_vec3[4])) / 2
+#         center_y = (int(str_vec3[3]) + int(str_vec3[5])) / 2
+#         center_x_dist = float(abs(width/2 - center_x)) / width
+#         center_y_dist = float(abs(height/2 - center_y)) / height
+#
+#         if "car" in str_vec3[0] and (float(str_vec3[6]) > 0.36):
+#             return True
+#         if "other.other" == str_vec3[0] and (float(str_vec3[6]) > 0.8):
+#             return True
+#         if "car" in str_vec3[0] and (center_x_dist < 0.2 and center_y_dist < 0.2):
+#             return True
+#         if "car" in str_vec3[0] and (int(str_vec3[2]) > 0 and int(str_vec3[4]) < width and int(str_vec[3]) > 0 and
+#                                      int(str_vec3[5]) < height):
+#             return True
+#     return False
 
-        if "car" in str_vec3[0] and (float(str_vec3[6]) > 0.36):
-            return True
-        if "other.other" == str_vec3[0] and (float(str_vec3[6]) > 0.8):
-            return True
-        if "car" in str_vec3[0] and (center_x_dist < 0.2 and center_y_dist < 0.2):
-            return True
-        if "car" in str_vec3[0] and (int(str_vec3[2]) > 0 and int(str_vec3[4]) < width and int(str_vec[3]) > 0 and
-                                     int(str_vec3[5]) < height):
-            return True
+
+def is_car_only_part(input_line):
+    line_arr = input_line.split('\t')
+    height = int(line_arr[1])
+    width = int(line_arr[2])
+    object_part = line_arr[4]
+    object_arr = get_object_info_list(object_part)
+    for object_info in object_arr:
+        if object_info.object_name == 'vehicle.car':
+            if object_info.is_part_object(width, height):
+                return True
     return False
 
 
@@ -280,6 +303,15 @@ class ObjectInfo(object):
         r_y = min(self.r_y, other.r_y)
         return (r_y - l_y) * (l_x - r_x)
 
+    def is_part_object(self, width, height):
+        if self.l_x > 0 and self.l_y > 0 and self.r_x < width and self.r_y < height:
+            return False
+        x_center = (self.l_x + self.r_x)/2.0
+        if abs((width/2.0 - x_center))/width < 0.05 and max(self.l_x, width - self.r_x)/width < 0.08 \
+                and self.l_y > 0 and self.r_y < height:
+            return False
+        return True
+
     @staticmethod
     def _is_overlap_1d(l_1, r_1, l_2, r_2):
         return (l_1 - l_2) * (l_1 - r_2) < 0 or (r_1 - l_2) * (r_1 - r_2) < 0
@@ -287,9 +319,14 @@ class ObjectInfo(object):
 if __name__ == '__main__':
     precision, model_result = get_model()
     # print precision
-    out_put_result = 'result4.test.txt'
+    out_put_result = 'result5.test.txt'
     abs_output_path = data_combiner.get_result_data(out_put_result)
     # object_str = 'vehicle.car,0.995,117,325,805,1170,0.4731;person.face,0.991,492,235,610,365,0.0125;'
     # test_car_overlapped(object_str)
+    input_data_path = 'car_data_20160817'
+    abs_input_data_path = data_combiner.get_input_data(input_data_path)
+    input_data_with_score_b = abs_input_data_path + '_with_score_b'
+    data_combiner.get_score_b_by_id(abs_input_data_path, input_data_with_score_b,
+                                    input_columns=['photo_id', 'width', 'height', 'object_num', 'object_info'])
 
-    prediction_with_model(model_result, abs_output_path)
+    prediction_with_model(model_result, abs_output_path, input_data_with_score_b)
