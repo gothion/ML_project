@@ -1,16 +1,19 @@
 # coding=utf8
 import numpy as np
 import os
-
 from sklearn.metrics import precision_score
-
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import GradientBoostingClassifier
+# from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+from ml_project import data_combiner
 
 this_dir, this_filename = os.path.split(__file__)
 data_folder = os.path.normpath(os.path.join(this_dir, '..', 'data'))
+out_put_folder = os.path.normpath(os.path.join(this_dir, '..', 'test_result'))
+object_info_sep = ';'
+object_field_sep = ','
+white_list = ['other.text', 'other.sticker', 'other.log']
 
 
 def train_and_predict(x_data, y_data, train_num=700):
@@ -39,48 +42,17 @@ def train_and_predict(x_data, y_data, train_num=700):
     # return precision_score(y_test, result2), clf
 
 
-
-def read_sample(sample_label, sample_file_path, version=0):
+def read_sample(sample_label, sample_file_path):
     X = []
     Y = []
     with open(sample_file_path, mode='r') as samples:
         for line in samples:
-            if version == 0:
-                feature_vector = extract_feature(line)
-            else:
-                feature_vector = extract_feature_version1(line)
-
+            feature_vector = extract_feature(line)
             if feature_vector[3] > 0.10:
                 X.append(feature_vector)
                 Y.append(sample_label)
     return np.array(X), np.array(Y)
 
-
-def extract_feature_version1(sample_line):
-    object_part = sample_line.split(' ')[0]
-    object_part = object_part.split('_')[1]
-    label_info = extract_object_info(object_part)
-    label_num_index_arr = [0, 2, 4]
-    object_num = 0.0
-    for label_index in label_num_index_arr:
-        object_num += label_info[label_index]
-    # for label_index in label_num_index_arr:
-    #     label_info[label_index] /= object_num
-    # return [float(object_num)] + label_info
-    return label_info
-
-
-# def extract_feature(sample_line):
-#     the_index = index_of_char(sample_line, ',', 2)
-#     fore_part_sample = sample_line[:the_index]
-#     object_num = int(fore_part_sample.split(',')[1])
-#     object_part = sample_line[the_index+1:]
-#     label_info = extract_object_info(object_part, object_num)
-#     label_num_index_arr = [0, 2, 4]
-#     # for label_index in label_num_index_arr:
-#     #     label_info[label_index] /= object_num
-#     # return [float(object_num)] + label_info
-#     return label_info
 
 def extract_feature(sample_line):
     line_arr = sample_line.split('\t')
@@ -89,11 +61,11 @@ def extract_feature(sample_line):
     object_part = line_arr[4]
     label_info = extract_object_info(object_part, object_num)
     quality = float(line_arr[-1])
-    if is_part_of_car(sample_line):
-        part_info = 1
-    else:
-        part_info = 0
-    return label_info + [quality] + [part_info]
+    object_info_list = get_object_info_list(object_part)
+    is_car_blocked = is_car_overlapped(object_info_list)
+    if is_car_blocked:
+        return label_info + [quality] + [1]
+    return label_info + [quality] + [0]
 
 # def extract_car_object_size(sample_line):
 #     line_arr = sample_line.split('\t')
@@ -124,7 +96,7 @@ def extract_object_info_impl(object_str):
     object_arr = object_str.split(',')
     object_sign = object_arr[0]
     object_area = float(object_arr[6])
-    if object_sign =='other.other':
+    if object_sign == 'other.other':
         unknown_label = 1
         car_label = 0
         not_related = 0
@@ -178,8 +150,8 @@ def get_model():
 
     # x_data2 = x_data2[indices[:880]]
     # y_data2 = y_data2[indices[:880]]
-    x_data1 = np.tile(x_data3, (2, 1))
-    y_data1 = np.tile(y_data3, 2)
+    x_data1 = np.tile(x_data3, (3, 1))
+    y_data1 = np.tile(y_data3, 3)
     # x_data1 = x_data3
     # y_data1 = y_data3
 
@@ -194,11 +166,22 @@ def prediction_with_model(model, out_put_file):
     to_be_predicted2 = read_predicted_line(data_folder + '/bad_multi_lable_scoreb.txt')
     to_be_predicted = dict(to_be_predicted.items() + to_be_predicted2.items())
     with open(out_put_file, mode='w') as out_put_data:
-        for photo_id, vector_info in to_be_predicted.iteritems():
-            new_vector_info = vector_info.reshape(1, -1)
-            if vector_info[3] > 0.10:
-                out_put_data.write(photo_id + ',' + str(model.predict_proba(new_vector_info)[0][1]) + ','
-                                    + str(vector_info) + '\n')
+        with open(out_put_file + "_v2", mode='w') as output_data_v2:
+            for photo_id, vector_info in to_be_predicted.iteritems():
+                new_vector_info = vector_info.reshape(1, -1)
+                prediction_result = model.predict_proba(new_vector_info)[0][1]
+                if vector_info[3] > 0.10 and prediction_result >= 0.5:
+                    out_put_data.write(photo_id + ',' + str(prediction_result) + ',' + str(vector_info) + '\n')
+                if vector_info[6] >= 0.98:
+                    output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+                elif vector_info[6] >= 0.75 and prediction_result > 0.45 \
+                        and vector_info[3] > 0.10 and vector_info[7] == 0:
+                    output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+
+    data_combiner.get_url_info_by_id(out_put_file, out_put_file+'_with_url',
+                                     input_columns=['photo_id', 'score', 'vector_info'])
+    data_combiner.get_url_info_by_id(out_put_file + '_v2', out_put_file + '_v2_with_url',
+                                     input_columns=['photo_id', 'score', 'vector_info'])
 
 
 def read_predicted_line(file_path):
@@ -229,26 +212,84 @@ def is_part_of_car(line):
         center_y_dist = float(abs(height/2 - center_y)) / height
 
         if "car" in str_vec3[0] and (float(str_vec3[6]) > 0.36):
-           return True
+            return True
         if "other.other" == str_vec3[0] and (float(str_vec3[6]) > 0.8):
-           return True
-        if "car" in str_vec3[0] and ( center_x_dist < 0.2 and center_y_dist < 0.2):
-           return True
-        if "car" in str_vec3[0] and (int(str_vec3[2]) > 0 and int(str_vec3[4]) < width and int(str_vec[3]) > 0
-            and int(str_vec3[5]) < height):
-           return True
+            return True
+        if "car" in str_vec3[0] and (center_x_dist < 0.2 and center_y_dist < 0.2):
+            return True
+        if "car" in str_vec3[0] and (int(str_vec3[2]) > 0 and int(str_vec3[4]) < width and int(str_vec[3]) > 0 and
+                                     int(str_vec3[5]) < height):
+            return True
     return False
 
 
-if __name__ == '__main__':
-    precision, model = get_model()
-    # print precision
-    prediction_with_model(model, 'result3.txt')
+def get_object_info_list(objects_str):
+    object_info_arr = []
+    objects_arr = objects_str.split(object_info_sep)[:-1]
+    for object_info_str in objects_arr:
+        object_field_arr = object_info_str.split(object_field_sep)
+        object_name = object_field_arr[0]
+        l_x = int(object_field_arr[2])
+        l_y = int(object_field_arr[3])
+        r_x = int(object_field_arr[4])
+        r_y = int(object_field_arr[5])
+        object_info_arr.append(ObjectInfo(object_name, l_x, l_y, r_x, r_y))
+    return object_info_arr
 
+
+def is_car_overlapped(object_info_list):
+    if len(object_info_list) < 2:
+        return False
+    for i in range(len(object_info_list)):
+        for j in range(len(object_info_list)):
+            if i != j:
+                if object_info_list[i].object_name == 'vehicle.car' or object_info_list[j].object_name == 'vehicle.car':
+                    if object_info_list[i].object_name not in white_list and object_info_list[j].object_name not in \
+                            white_list:
+                        if object_info_list[i].is_overlap(object_info_list[j]):
+                            return True
+
+
+def test_car_overlapped(objects_str):
+    object_info_list = get_object_info_list(objects_str)
+    result = is_car_overlapped(object_info_list)
+    print result
+    return result
 
 
 class ObjectInfo(object):
-    def __init__(self, area, x_point, y_point):
-        self.area = area
-        self.x_point = x_point
-        self.y_point = y_point
+    def __init__(self, object_name,
+                 l_x, l_y, r_x, r_y):
+        self.object_name = object_name
+        self.l_x = l_x
+        self.l_y = l_y
+        self.r_x = r_x
+        self.r_y = r_y
+
+    def is_overlap(self, other):
+        x_bool = self._is_overlap_1d(self.l_x, self.r_x, other.l_x, other.r_x)
+        y_bool = self._is_overlap_1d(self.l_y, self.r_y, other.l_y, other.r_y)
+        return x_bool and y_bool
+
+    def get_over_lap_area(self, other):
+        if not self.is_overlap(other):
+            return 0
+        l_x = max(self.l_x, other.l_x)
+        l_y = max(self.l_y, other.l_y)
+        r_x = min(self.r_x, other.r_x)
+        r_y = min(self.r_y, other.r_y)
+        return (r_y - l_y) * (l_x - r_x)
+
+    @staticmethod
+    def _is_overlap_1d(l_1, r_1, l_2, r_2):
+        return (l_1 - l_2) * (l_1 - r_2) < 0 or (r_1 - l_2) * (r_1 - r_2) < 0
+
+if __name__ == '__main__':
+    precision, model_result = get_model()
+    # print precision
+    out_put_result = 'result4.test.txt'
+    abs_output_path = data_combiner.get_result_data(out_put_result)
+    # object_str = 'vehicle.car,0.995,117,325,805,1170,0.4731;person.face,0.991,492,235,610,365,0.0125;'
+    # test_car_overlapped(object_str)
+
+    prediction_with_model(model_result, abs_output_path)
