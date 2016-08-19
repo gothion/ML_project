@@ -11,17 +11,18 @@ payload = {'wt': 'json', 'indent': 'true', 'rows': str(row_num)}
 query_point = ['desc', 'comment', 'tag_name']
 
 
-def get_result(words):
+def get_result(words, out_file_name):
     local_payload = copy.deepcopy(payload)
     local_payload['q'] = get_query_key(words)
     start = 0
-    while True:
-        return_num, result = get_result_impl(local_payload, start)
-        for result_elem in result:
-            print result_elem
-        if return_num < row_num:
-            break
-        start += row_num
+    with open(out_file_name, 'w') as out_put_data:
+        while True:
+            return_num, result = get_result_impl(local_payload, start)
+            for result_elem in result:
+                out_put_data.write(result_elem + '\n')
+            if return_num < row_num:
+                break
+            start += row_num
     print start
 
 
@@ -29,6 +30,7 @@ def get_result_impl(input_local_payload, start):
     input_local_payload['start'] = start
     payload_str = '&'.join('{0}={1}'.format(k, v) for k, v in input_local_payload.items())
     r = requests.get(http_url, params=payload_str)
+    print r.url
     result = r.json()['response']['docs']
     return len(result), [convert_result_to_str(result_elem) for result_elem in result]
 
@@ -46,4 +48,4 @@ def get_query_key(words):
     return query_connection_sep.join(query_point) + ":({0})".format(words_format)
 
 if __name__ == '__main__':
-    get_result(['宝马', '兰博基尼', '奔驰'])
+    get_result(['电影', 'movie', '大片', '电视剧', '喜剧', '武侠', '美剧', '韩剧', 'moive'], 'moive.txt')
