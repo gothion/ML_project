@@ -166,32 +166,37 @@ def prediction_with_model(model, out_put_file, input_data_path):
     to_be_predicted = read_predicted_line(input_data_path)
     with open(out_put_file, mode='w') as out_put_data:
         with open(out_put_file + "_v2", mode='w') as output_data_v2:
-            for photo_id, (vector_info, raw_line) in to_be_predicted.iteritems():
-                new_vector_info = vector_info.reshape(1, -1)
-                prediction_result = model.predict_proba(new_vector_info)[0][1]
-                if prediction_result >= 0.5 and vector_info[3] > 0.10\
-                        and vector_info[7] == 0 and not is_car_only_part(raw_line):
-                    out_put_data.write(photo_id + ',' + str(prediction_result) + ',' + str(vector_info) + '\n')
-                if vector_info[6] >= 0.98 and vector_info[7] == 0 and not is_car_only_part(raw_line):
-                    output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
-                elif vector_info[6] >= 0.75 and prediction_result > 0.45 \
-                        and vector_info[3] > 0.10 and vector_info[7] == 0 and not is_car_only_part(raw_line):
-                    output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
-                elif vector_info[6] >= 0.45 and prediction_result > 0.55 \
-                        and vector_info[3] > 0.10 and vector_info[7] == 0 and not is_car_only_part(raw_line):
-                    output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+            with open(out_put_file + "_v3", mode='w') as output_data_v3:
+                for photo_id, (vector_info, raw_line) in to_be_predicted.iteritems():
+                    new_vector_info = vector_info.reshape(1, -1)
+                    prediction_result = model.predict_proba(new_vector_info)[0][1]
+                    if prediction_result >= 0.5 and vector_info[3] > 0.10\
+                            and vector_info[7] == 0 and not is_car_only_part(raw_line):
+                        out_put_data.write(photo_id + ',' + str(prediction_result) + ',' + str(vector_info) + '\n')
+                    if vector_info[6] >= 0.98 and vector_info[7] == 0 and not is_car_only_part(raw_line):
+                        output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+                        output_data_v3.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+                    elif vector_info[6] >= 0.75 and prediction_result > 0.45 \
+                            and vector_info[3] > 0.10 and vector_info[7] == 0 and not is_car_only_part(raw_line):
+                        output_data_v2.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+                        output_data_v3.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
+                    elif vector_info[6] >= 0.40 and prediction_result > 0.65 \
+                            and vector_info[3] > 0.10 and vector_info[7] == 0 and not is_car_only_part(raw_line):
+                        output_data_v3.write(photo_id + ',' + str(vector_info[6]) + ',' + str(vector_info) + '\n')
 
-    total_out_file = out_put_file+"_total"
-    with open(total_out_file, mode='w') as out_total:
-        for photo_id, (vector_info, raw_line) in to_be_predicted.iteritems():
-            out_total.write(photo_id + ',' + str(prediction_result) + ',' + str(is_car_only_part(raw_line)) + '\n')
+    # total_out_file = out_put_file+"_total"
+    # with open(total_out_file, mode='w') as out_total:
+    #     for photo_id, (vector_info, raw_line) in to_be_predicted.iteritems():
+    #         out_total.write(photo_id + ',' + str(prediction_result) + ',' + str(is_car_only_part(raw_line)) + '\n')
 
     data_combiner.get_url_info_by_id(out_put_file, out_put_file+'_with_url',
                                      input_columns=['photo_id', 'score', 'vector_info'])
     data_combiner.get_url_info_by_id(out_put_file + '_v2', out_put_file + '_v2_with_url',
                                      input_columns=['photo_id', 'score', 'vector_info'])
-    data_combiner.get_url_info_by_id(total_out_file, total_out_file+'_with_url',
+    data_combiner.get_url_info_by_id(out_put_file + '_v3', out_put_file + '_v3_with_url',
                                      input_columns=['photo_id', 'score', 'vector_info'])
+    # data_combiner.get_url_info_by_id(total_out_file, total_out_file+'_with_url',
+    #                                  input_columns=['photo_id', 'score', 'vector_info'])
 
 
 def read_predicted_line(file_path):
