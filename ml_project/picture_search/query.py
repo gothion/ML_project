@@ -11,6 +11,7 @@ payload = {'wt': 'json', 'indent': 'true', 'rows': str(row_num)}
 # query_point = ['desc', 'comment', 'tag_name']
 query_point = ['desc',  'tag_name']
 
+
 def get_result(words, out_file_name):
     local_payload = copy.deepcopy(payload)
     local_payload['q'] = get_query_key(words)
@@ -65,4 +66,7 @@ if __name__ == '__main__':
                '田园风格,过道,隔断墙,中式田园风格,阳台,伊姆斯椅,懒人沙发,椅,家私,卧室, 主卧, 次卧, 双人床,儿童床,单人床,' \
                '茶几,推拉门,多功能沙发,床垫,茶几,摇椅,沙发床,布艺沙发,斯帝罗兰,吊椅,榻榻米,衣柜,衣帽间,五斗柜,床头柜,壁柜,' \
                '窗台,储物柜,碗柜,卫浴柜,玻璃门,木床,转角沙发,皮沙发,雕花床,软床,形沙发,立体墙,照片墙,地板,妆台'
-    get_result(test_str.split(','), '家具')
+    test_str = '卡通,动漫,罗小黑,灰太狼,露比,奥特曼,史迪奇,乔巴,米菲,蜡笔小新,米老鼠,炮炮兵,兔八哥,mocmoc,大头,超人,萌娘,猫耳娘,全是猫,' \
+               '甜甜私房猫,叮当猫,哆啦a梦,魔卡少女樱,火影忍者,守护甜心,航海王,夏目友人帐,阿拉蕾,阿童木,名侦探柯南,犬夜叉,银魂,千与千寻,死神,' \
+               '龙珠,海贼王,魂狩,暴君熊,百兽凯多,美羊羊,咚咚锵'
+    get_result(test_str.split(','), '卡通')
