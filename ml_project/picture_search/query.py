@@ -3,6 +3,8 @@ import copy
 
 import requests
 
+from ml_project.picture_search.trans import trans
+
 http_url = 'http://10.10.106.219:10201/solr/photo/select'
 row_num = 20
 keep_field = 'id, url'
@@ -10,13 +12,14 @@ payload = {'wt': 'json', 'indent': 'true', 'rows': str(row_num)}
 
 # query_point = ['desc', 'comment', 'tag_name']
 query_point = ['desc',  'tag_name']
+query_point_pinyin = ['desc_py', 'tag_name_py']
 
 
-def get_result(words, out_file_name):
+def get_result(words, out_file_name, out_file_mode='w', query_mode='origin'):
     local_payload = copy.deepcopy(payload)
-    local_payload['q'] = get_query_key(words)
+    local_payload['q'] = get_query_key(words, query_mode)
     start = 0
-    with open(out_file_name, 'w') as out_put_data:
+    with open(out_file_name, out_file_mode) as out_put_data:
         while True:
             return_num, result = get_result_impl(local_payload, start)
             for result_elem in result:
@@ -42,24 +45,37 @@ def convert_result_to_str(result_elem):
     return str(result_elem.get('photo_id')) + ',' + field_info
 
 
-def get_query_key(words):
+def get_query_key(words, query_mode='origin'):
     connection_word = '+OR+'
     words_format = connection_word.join(words)
     query_connection_sep = ':({0}){1}'.format(words_format, connection_word)
-    return query_connection_sep.join(query_point) + ":({0})".format(words_format)
+    if query_mode != 'pinyin':
+        return query_connection_sep.join(query_point) + ":({0})".format(words_format)
+    return query_connection_sep.join(query_point_pinyin) + ":({0})".format(words_format)
 
 
 def get_query_items():
     with open('query_info.txt') as input_data:
         for line in input_data:
             line_arr = line.split(',')
-            file_name = line_arr[0]
+            file_name = line_arr[0] + '.csv'
             get_result(words=line_arr, out_file_name=file_name)
+
+
+def get_query_items_pinyin():
+    with open('query_info.txt') as input_data:
+        for line in input_data:
+            line_pinyin = trans(line)
+            line_arr = line_pinyin.split(',')
+            file_name = line_arr[0] + '.csv'
+            get_result(words=line_arr, out_file_name=file_name, query_mode='pinyin')
+
 
 if __name__ == '__main__':
     # get_result(['电影', 'movie', '大片', '电视剧', '喜剧', '武侠', '美剧', '韩剧', 'moive'], 'moive.txt')
 
-    get_query_items()
+    # get_query_items()
+    get_query_items_pinyin()
     # get_result(['星空','夜空', '银河系', '黑洞','木星', '水星', '银河'], 'astronmy.csv')
     # get_result(['星空', '夜空', '银河系', '木星', '水星', '银河'], 'astronmy.csv')
     # test_str = '家具,玄关,新中式,背景墙,入户,飘窗, 客厅,中式古典风格,简装修,精装,简欧风格,欧式风格,' \
