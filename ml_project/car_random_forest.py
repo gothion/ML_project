@@ -25,7 +25,7 @@ def train_and_predict(x_data, y_data, train_num=700):
     y_train = y_data[indices[:train_num]]
     x_test = x_data[indices[train_num+1:]]
     y_test = y_data[indices[train_num+1:]]
-    rfc = RandomForestClassifier(n_estimators=200)
+    rfc = RandomForestClassifier(n_estimators=300)
     rfc.fit(x_train, y_train)
     result = rfc.predict(x_test)
     cm = confusion_matrix(y_test, rfc.predict(x_test), labels=[0, 1])
@@ -60,7 +60,7 @@ def extract_feature(sample_line):
     object_num = int(line_arr[3])
     object_part = line_arr[4]
     label_info = extract_object_info(object_part, object_num)
-    quality = float(line_arr[-1])
+    quality = float(line_arr[5])
     object_info_list = get_object_info_list(object_part)
     is_car_blocked = is_car_overlapped(object_info_list)
     if is_car_blocked:
@@ -149,12 +149,8 @@ def get_model():
     rng = np.random.RandomState(0)
     rng.shuffle(indices)
 
-    # x_data2 = x_data2[indices[:880]]
-    # y_data2 = y_data2[indices[:880]]
     x_data1 = np.tile(x_data3, (3, 1))
     y_data1 = np.tile(y_data3, 3)
-    # x_data1 = x_data3
-    # y_data1 = y_data3
 
     x_data = np.concatenate((x_data1, x_data2))
     y_data = np.concatenate((y_data1,  y_data2))
@@ -210,32 +206,6 @@ def read_predicted_line(file_path):
 
 def get_picture_id(line):
     return line.split("\t")[0]
-
-
-# def is_part_of_car(line):
-#     str_vec = line.split('\t')
-#     str_vec2 = str_vec[4].split(';')
-#     height = int(str_vec[1])
-#     width = int(str_vec[2])
-#     for i in range(len(str_vec2)):
-#         str_vec3 = str_vec2[i].split(',')
-#         if 7 != len(str_vec3):
-#             continue
-#         center_x = (int(str_vec3[2]) + int(str_vec3[4])) / 2
-#         center_y = (int(str_vec3[3]) + int(str_vec3[5])) / 2
-#         center_x_dist = float(abs(width/2 - center_x)) / width
-#         center_y_dist = float(abs(height/2 - center_y)) / height
-#
-#         if "car" in str_vec3[0] and (float(str_vec3[6]) > 0.36):
-#             return True
-#         if "other.other" == str_vec3[0] and (float(str_vec3[6]) > 0.8):
-#             return True
-#         if "car" in str_vec3[0] and (center_x_dist < 0.2 and center_y_dist < 0.2):
-#             return True
-#         if "car" in str_vec3[0] and (int(str_vec3[2]) > 0 and int(str_vec3[4]) < width and int(str_vec[3]) > 0 and
-#                                      int(str_vec3[5]) < height):
-#             return True
-#     return False
 
 
 def is_car_only_part(input_line):

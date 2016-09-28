@@ -1,9 +1,10 @@
 # coding=utf8
 import copy
 
+import re
 import requests
+import urllib
 
-from ml_project.picture_search.trans import trans
 
 http_url = 'http://10.10.106.219:10201/solr/photo/select'
 row_num = 20
@@ -17,17 +18,22 @@ query_point_pinyin = ['desc_py', 'tag_name_py']
 
 def get_result(words, out_file_name, out_file_mode='w', query_mode='origin'):
     local_payload = copy.deepcopy(payload)
-    local_payload['q'] = get_query_key(words, query_mode)
-    start = 0
+
+    key_offset = 0
+    key_num = 2
+
     with open(out_file_name, out_file_mode) as out_put_data:
-        while True:
-            return_num, result = get_result_impl(local_payload, start)
-            for result_elem in result:
-                out_put_data.write(result_elem + '\n')
-            if return_num < row_num:
-                break
-            start += row_num
-    print start
+        while key_offset < len(words):
+            start = 0
+            local_payload['q'] = get_query_key(words[key_offset:min(key_offset+key_num, len(words))], query_mode)
+            return_num = row_num
+            while return_num >= row_num:
+                return_num, result = get_result_impl(local_payload, start)
+                for result_elem in result:
+                    out_put_data.write(result_elem + '\n')
+                start += row_num
+            print start
+            key_offset += key_num
 
 
 def get_result_impl(input_local_payload, start):
@@ -57,25 +63,18 @@ def get_query_key(words, query_mode='origin'):
 def get_query_items():
     with open('query_info.txt') as input_data:
         for line in input_data:
-            line_arr = line.split(',')
+            line_arr_temp = [re.sub(r'\s+', '', key_word.strip()) for key_word in line.split(',')]
+            line_arr = [re.sub(r'[\(\)]', '', word) for word in line_arr_temp if len(word) > 1]
             file_name = line_arr[0] + '.csv'
-            get_result(words=line_arr, out_file_name=file_name)
-
-
-def get_query_items_pinyin():
-    with open('query_info.txt') as input_data:
-        for line in input_data:
-            line_pinyin = trans(line)
-            line_arr = line_pinyin.split(',')
-            file_name = line_arr[0] + '.csv'
-            get_result(words=line_arr, out_file_name=file_name, query_mode='pinyin')
+            line_arr_quoted = [urllib.quote(word) for word in line_arr]
+            get_result(words=line_arr_quoted, out_file_name=file_name)
 
 
 if __name__ == '__main__':
     # get_result(['电影', 'movie', '大片', '电视剧', '喜剧', '武侠', '美剧', '韩剧', 'moive'], 'moive.txt')
 
-    # get_query_items()
-    get_query_items_pinyin()
+    get_query_items()
+    # get_query_items_pinyin()
     # get_result(['星空','夜空', '银河系', '黑洞','木星', '水星', '银河'], 'astronmy.csv')
     # get_result(['星空', '夜空', '银河系', '木星', '水星', '银河'], 'astronmy.csv')
     # test_str = '家具,玄关,新中式,背景墙,入户,飘窗, 客厅,中式古典风格,简装修,精装,简欧风格,欧式风格,' \
